@@ -1,0 +1,361 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=23mm,headheight=15pt]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array,longtable}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+\definecolor{navy}{RGB}{18,43,70}
+\definecolor{blue}{RGB}{39,94,157}
+\definecolor{lightgray}{RGB}{245,247,250}
+\definecolor{codegreen}{RGB}{30,110,70}
+\definecolor{codegray}{RGB}{90,96,105}
+\definecolor{accent}{RGB}{196,54,62}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue,
+  pdftitle={Emergency Route Optimizer - Academic Project Report},
+  pdfauthor={Emergency Route Optimizer Project}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Emergency Route Optimizer}
+\rhead{\small Academic Prototype}
+\cfoot{\small Page \thepage\ of \pageref{LastPage}}
+\titleformat{\section}{\Large\bfseries\color{navy}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{blue}}{\thesubsection}{0.7em}{}
+\setlist[itemize]{itemsep=2pt,topsep=4pt,leftmargin=1.4em}
+\setlist[enumerate]{itemsep=3pt,topsep=4pt,leftmargin=1.6em}
+
+\lstdefinestyle{console}{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{lightgray},
+  frame=single,
+  rulecolor=\color{black!15},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  upquote=true,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+  aboveskip=6pt,
+  belowskip=6pt
+}
+
+\begin{document}
+\begin{titlepage}
+  \centering
+  \vspace*{13mm}
+  {\Large\bfseries\color{blue} JAVA \textbullet\ DATA STRUCTURES \textbullet\ GRAPH ALGORITHMS\par}
+  \vspace{17mm}
+  {\Huge\bfseries\color{navy} Emergency Route Optimizer\par}
+  \vspace{7mm}
+  {\Large Academic Project Report\par}
+  \vspace{5mm}
+  {\large Design, Implementation, Testing and Prototype Evaluation\par}
+  \vspace{13mm}
+  \rule{0.84\textwidth}{1.2pt}\par
+  \vspace{7mm}
+  {\large A graph-based prototype for estimating fast routes and comparing alternatives\par}
+  \vspace{7mm}
+  \rule{0.84\textwidth}{1.2pt}\par
+  \vfill
+  \begin{tabular}{rl}
+    \textbf{Student name:} & [Enter student name]\\[4pt]
+    \textbf{Roll / registration no.:} & [Enter roll number]\\[4pt]
+    \textbf{Programme / semester:} & [Enter programme and semester]\\[4pt]
+    \textbf{Department / institution:} & [Enter department and institution]\\[4pt]
+    \textbf{Project supervisor:} & [Enter supervisor name]\\[4pt]
+    \textbf{Implementation:} & Java 17+, Maven, Spring Boot\\[4pt]
+    \textbf{Core algorithms:} & Dijkstra and Yen's K-shortest loopless paths\\[4pt]
+    \textbf{Report date:} & 31 October 2026
+  \end{tabular}
+  \vfill
+  \fbox{\parbox{0.86\textwidth}{\small\textbf{Safety and scope notice.} This is an academic prototype and decision-support demonstration. It is not a certified emergency-dispatch system. The in-house graph algorithms operate on a fictional sample graph; the web route endpoint delegates real-road route calculations to OSRM's standard driving profile. The prototype does not provide validated emergency-vehicle access rules, live traffic, verified closures, traffic-signal priority, or operational guarantees. It must not be used to direct an actual emergency response.}}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Abstract}
+The Emergency Route Optimizer is an academic prototype that demonstrates graph-based route planning and a web-integrated mapping workflow. Its in-house Java engine models a road network as a directed weighted graph. Dijkstra's algorithm computes a minimum-estimated-time path, while Yen's algorithm generates distinct loopless alternatives. The sample engine supports directional road closures, traffic-multiplier updates, input validation, and unreachable-destination handling.
+
+A separate Spring Boot web backend exposes health, route, and place-search endpoints. The browser interface uses HTML, CSS, JavaScript, and Leaflet to display locations and provider-returned route geometry. For the real-road demonstration, coordinates are sent to OSRM's standard driving profile; place names are resolved through an explicit Nominatim search. The web integration and the in-house DSA engine are separate paths: the current web route endpoint does not execute Dijkstra or Yen over an imported real-world city graph.
+
+The dependency-free regression suite was expanded and passed 31 checks in the validation environment. A user-observed web demonstration returned an OSRM route of 6.7559 km and 573.8 seconds for a sample pair of Delhi coordinates. These results demonstrate functionality under the tested conditions, not operational safety or live-traffic accuracy.
+
+\textbf{Keywords:} emergency route planning, directed graph, Dijkstra, Yen's algorithm, Spring Boot, OSRM, Nominatim, Leaflet, route alternatives.
+
+\section{Introduction and Problem Statement}
+Emergency response journeys may involve several possible road paths. A shorter road path is not necessarily the fastest if its estimated speed is lower, its traffic factor is higher, or a road segment is unavailable. A planning tool can help compare routes using explicit assumptions and can recalculate when a road is marked closed or a traffic multiplier changes.
+
+The academic problem addressed here is to model road connectivity and estimate route cost in a reproducible way, then expose a separate map-backed demonstration that can request real-road route information from an external routing engine.
+
+The project does not attempt to replace emergency dispatchers, grant special road privileges, control traffic signals, or certify the safety of a route. It is a prototype for demonstrating data structures, algorithms, API integration, and user-interface design.
+
+\section{Objectives}
+The project objectives are:
+\begin{itemize}
+  \item represent locations and directional road segments using an adjacency-list graph;
+  \item calculate estimated road travel time from distance, nominal speed, traffic multiplier, and fixed delay;
+  \item find a minimum-estimated-time path using Dijkstra's algorithm;
+  \item generate distinct loopless alternatives using Yen's K-shortest paths method;
+  \item exclude closed road segments from subsequent route calculations;
+  \item validate malformed input and handle unknown or unreachable locations;
+  \item provide a Java REST backend and a map-based demonstration interface;
+  \item document test evidence, assumptions, limitations, and future research work.
+\end{itemize}
+
+\section{Scope, Assumptions and Functional Requirements}
+\subsection{Included in the academic prototype}
+\begin{itemize}
+  \item A deterministic fictional network containing eight named locations and twenty-four directed road segments.
+  \item Dijkstra shortest-time routing and up to ten requested Yen alternatives in the in-house engine.
+  \item A console menu for route calculation, network display, road closure/reopening, traffic-factor changes, and bidirectional road addition.
+  \item A Spring Boot backend with a health endpoint, a real-road routing endpoint, and a place-search endpoint in the working IntelliJ project.
+  \item A Leaflet-based browser interface with origin/destination place search, optional browser geolocation, route geometry, distance/duration results, map-style selection, and multiple response-team selection.
+  \item A Dispatch Workspace theme selector, incident-planning fields, and a route-readiness summary.
+\end{itemize}
+
+\subsection{Important assumptions and boundaries}
+The in-house DSA graph is fictional and in memory. Its weights are configured sample values. The browser route endpoint calls OSRM's standard \texttt{driving} profile. The place-search endpoint uses Nominatim. Public map, geocoding, and routing services require internet access and may rate-limit or become unavailable.
+
+The multiple-team selector records which response teams are selected for an incident in the interface. It does not track each vehicle's current position, create separate routes for each team, transmit dispatch orders, or communicate with emergency-service control rooms. Incident type, priority, and notes are planning fields; they do not alter the routing cost.
+
+\section{System Architecture}
+The working system contains a front end, a Spring Boot API layer, external geographic services, and a separate in-house DSA engine.
+
+\begin{center}
+\fbox{\begin{minipage}{0.91\textwidth}
+\centering
+\textbf{Browser: Dispatch Workspace}\par
+\small HTML + CSS + JavaScript + Leaflet map\par
+\vspace{3pt}
+$\downarrow$ HTTP requests to Java backend\par
+\vspace{3pt}
+\textbf{Spring Boot REST API}\par
+\small \texttt{/api/health} \quad \texttt{/api/geocode} \quad \texttt{/api/routes}\par
+\vspace{3pt}
+$\swarrow$ \hspace{1.4cm} $\downarrow$ \hspace{1.4cm} $\searrow$\par
+Nominatim \hspace{1cm} OSRM \hspace{1cm} Health response\par
+Place name to coordinates \quad Coordinates to route \quad Backend readiness\par
+\vspace{7pt}
+\hrule
+\vspace{7pt}
+\textbf{Separate in-house algorithm path}\par
+\small SampleNetwork $\rightarrow$ RoadNetwork $\rightarrow$ RouteOptimizer\par
+Dijkstra shortest path + Yen loopless alternatives\par
+\small (fictional eight-location / twenty-four-edge graph; not the OSRM web route calculation)
+\end{minipage}}
+\end{center}
+
+\subsection{Backend endpoints}
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.26\textwidth} X}
+\toprule
+\textbf{Endpoint} & \textbf{Purpose}\\
+\midrule
+GET /api/health & Returns a simple JSON readiness response so the interface can show whether the backend is responding.\\
+GET /api/geocode?q=... & Performs an explicit text search and returns candidate place labels and coordinates. The UI requires a user action rather than sending one search request per keystroke.\\
+GET /api/routes & Accepts origin/destination latitude and longitude query parameters, validates their ranges, calls the external routing service, and returns route JSON including distance, duration, and geometry where provided.\\
+\bottomrule
+\end{tabularx}
+
+\subsection{External service roles}
+\textbf{OSRM:} The route integration formats coordinates in longitude,latitude order, calls the \texttt{/route/v1/driving/} service, requests GeoJSON geometry, and asks for route alternatives. OSRM documentation notes that alternative routes can be requested, but an alternative is not guaranteed for every request [3].
+
+\textbf{Nominatim:} The geocoding integration converts a user-entered place/address string into candidate place results. The working integration includes a descriptive User-Agent, caching of successful results, request spacing, and English preference. The public Nominatim service has a strict low-volume policy, including a maximum of one request per second and a requirement to identify the application [4].
+
+\textbf{Leaflet and map layers:} Leaflet renders the interactive map and GeoJSON route. Available tile styles can include street, humanitarian, terrain, satellite, and cloudless layers. Label language, building footprints, road names, and water features depend on the data and rendering coverage in each area. The OpenStreetMap public tile service is best-effort, has no SLA, requires attribution, and has restrictions against bulk tile downloading [5,7].
+
+\section{Graph Model and Travel-Time Formula}
+Let $G=(V,E)$ be a directed graph. Each vertex represents a location; each directed edge represents a road segment. A two-way road is modelled as two independent directed edges, such as \texttt{R04-F} and \texttt{R04-R}, so the status of each direction can differ.
+
+For edge $e$, the model stores distance $d_e$ in kilometres, nominal speed $v_e$ in kilometres per hour, traffic multiplier $m_e\geq1$, additional delay $a_e\geq0$ in minutes, a descriptive risk value, and an open/closed flag.
+
+\[
+  w(e)=\left(\frac{d_e}{v_e}\right)60m_e+a_e.
+\]
+
+For a path $P$, estimated time is $T(P)=\sum_{e\in P}w(e)$. The objective is
+\[
+  P^*=\arg\min_{P\in\mathcal{P}(s,t)} T(P),
+\]
+where $\mathcal{P}(s,t)$ is the set of directed paths from origin $s$ to destination $t$ using only open edges. The model uses non-negative weights, so Dijkstra's algorithm is suitable.
+
+The traffic multiplier is a simplified scenario input, not a measured traffic prediction. The descriptive risk points are not part of the objective function and must not be interpreted as a validated safety rating.
+
+\section{Algorithms and Data Structures}
+\subsection{Adjacency-list graph}
+\texttt{RoadNetwork} stores locations, roads, and outgoing edges in maps. Route searches iterate only over outgoing edges from the currently expanded location. Directional edges make one-way restrictions and direction-specific closures representable.
+
+\subsection{Dijkstra's shortest path}
+A priority queue selects the vertex with the smallest known tentative time. When an open outgoing edge produces a lower time to a neighbour, the algorithm updates the distance and predecessor road. Once the destination is reached, predecessor roads are traversed to reconstruct the path.
+
+For a binary-heap priority queue, a conventional time bound is $O((|V|+|E|)\log |V|)$, with $O(|V|+|E|)$ graph/search storage.
+
+\subsection{Yen's K-shortest loopless paths}
+The first accepted path is produced by Dijkstra. Yen's method then considers each edge position in the most recently accepted path. It fixes the prefix as a root path, bans the next edge of accepted paths sharing that prefix, bans prior root vertices, and performs a spur shortest-path search. Root and spur paths are combined. Candidate route signatures prevent duplicates, and a priority queue selects the next lowest-cost candidate.
+
+The implementation permits a requested count from one to ten. Yen's algorithm performs repeated shortest-path searches; its cost depends on graph size, route count, and network structure.
+
+\subsection{Validation and deterministic behavior}
+Identifiers are normalized using locale-independent uppercase rules. Road models validate finite positive distance/speed, traffic multipliers, non-negative delay, and a bounded descriptive risk value. The route model copies its location and road lists and exposes immutable results. Stable road ordering and queue tie-breaking improve reproducibility for the supplied fixture.
+
+\section{Implementation}
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.33\textwidth} X}
+\toprule
+\textbf{Component} & \textbf{Responsibility}\\
+\midrule
+Location & Stable ID and display name for a graph vertex.\\
+Road & Directional road segment with weight inputs, open/closed state, and estimated travel time.\\
+RoadNetwork & Adjacency-list storage and graph validation.\\
+Route & Immutable path result with locations, roads, ETA, distance, descriptive risk, and signature.\\
+RouteOptimizer & Dijkstra shortest path and Yen alternative generation.\\
+SampleNetwork & Deterministic fictional graph fixture.\\
+EmergencyRouteApp & Original console menu and scenario controls.\\
+EmergencyRouteBackendApplication & Spring Boot application entry point.\\
+HealthController & Backend readiness endpoint.\\
+RouteController / OsrmRoutingService & Coordinate validation and external OSRM route request.\\
+GeocodingController / NominatimGeocodingService & Explicit place search and provider response handling.\\
+Browser interface & Place search, team selection, map display, route selection, and theme control.\\
+\bottomrule
+\end{tabularx}
+
+\section{Testing and Verification}
+\subsection{Automated checks}
+The dependency-free regression suite is executed by \texttt{scripts/verify.sh}. It compiles production sources using \texttt{javac --release 17} and executes 31 assertions/checks. The latest recorded run in the validation environment passed all 31 checks. The checks include:
+\begin{itemize}
+  \item sample graph size, route existence, path endpoints, and node-edge consistency;
+  \item route ordering, unique signatures, and loopless alternatives;
+  \item closed-road exclusion and recalculation after road/traffic changes;
+  \item same-origin and unreachable-network behavior;
+  \item invalid location and alternative-count validation;
+  \item direction-specific closures, locale-independent identifiers, and travel-time arithmetic;
+  \item invalid road data, duplicate graph identifiers, and route-result immutability.
+\end{itemize}
+
+The JUnit suite was expanded to 13 test methods covering the core invariants and additional model-validation scenarios. The documentation preparation environment did not have Maven installed, so the updated JUnit suite was not independently executed in that environment. A final \texttt{mvn test} run must be completed on the student's IntelliJ/Maven installation and its green summary retained as submission evidence.
+
+\subsection{Observed web demonstration}
+The developer previously ran the backend health endpoint and observed JSON status \texttt{UP}. A real-road request between approximate coordinates near India Gate and Red Fort in Delhi returned \texttt{code: Ok}, a distance of 6,755.9 metres, duration of 573.8 seconds, and a GeoJSON \texttt{LineString}. This is one observed external-service response, not a fixed test oracle. OSRM responses can vary with the provider's road data and availability.
+
+Place search is implemented through the Nominatim integration. The final local acceptance test must confirm that \texttt{/api/geocode?q=Patiala} returns a JSON array or a controlled JSON error, and that the UI handles non-JSON HTML error pages without an unhandled parsing exception.
+
+\subsection{Manual acceptance tests}
+\begin{longtable}{p{0.11\textwidth} p{0.48\textwidth} p{0.31\textwidth}}
+\toprule
+\textbf{ID} & \textbf{Action} & \textbf{Expected observation}\\
+\midrule
+M01 & Open \texttt{/api/health}. & JSON response with status \texttt{UP}.\\
+M02 & Request a real route through \texttt{/api/routes}. & Provider response with route code, distance, duration, and geometry.\\
+M03 & Search a place through \texttt{/api/geocode}. & JSON candidate list or controlled JSON error.\\
+M04 & Select origin and destination in the UI. & Selected labels/coordinates are displayed.\\
+M05 & Calculate route and choose alternatives. & Route geometry and metrics update on the map/sidebar.\\
+M06 & Select multiple response teams. & Multiple selections are visible; UI explains shared-route limitation.\\
+M07 & Toggle Dispatch Workspace theme. & Sidebar changes theme while map layers/controls remain unchanged.\\
+M08 & Switch map styles and zoom. & Tiles and attribution remain visible where provider coverage permits.\\
+\bottomrule
+\end{longtable}
+
+\section{Results}
+\subsection{Fictional DSA sample}
+For the default sample graph, one observed deterministic result set is:
+\begin{center}
+\small
+\begin{tabularx}{0.97\textwidth}{c X r r r}
+\toprule
+\textbf{Rank} & \textbf{Path} & \textbf{ETA} & \textbf{Distance} & \textbf{Risk points}\\
+\midrule
+1 & Central Hospital $\to$ East Market $\to$ City Stadium $\to$ Emergency Site & 10.82 min & 7.50 km & 3.0\\
+2 & Central Hospital $\to$ North Junction $\to$ City Stadium $\to$ Emergency Site & 12.15 min & 8.50 km & 3.0\\
+3 & Central Hospital $\to$ North Junction $\to$ Riverside Bridge $\to$ Emergency Site & 12.62 min & 7.00 km & 4.0\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+These figures are deterministic outputs of the fictional values in \texttt{SampleNetwork.java}. They are not real-city measurements. They illustrate that the fastest estimated route need not be the shortest by distance.
+
+\subsection{Real-road web example}
+The previously observed Delhi example returned approximately 6.76 km and 9.56 minutes. The OSRM response included route geometry and one route candidate for that request. An alternative request does not guarantee multiple alternatives; the OSRM API returns alternatives only when suitable alternatives exist [3].
+
+\section{Known Limitations and Risk Boundary}
+\begin{enumerate}
+  \item The in-house Dijkstra/Yen engine is tested on a small fictional graph; it is not currently operating on a full imported city road graph.
+  \item The web route endpoint delegates route calculation to OSRM's standard driving profile. It does not apply ambulance, fire-appliance, or police-specific permissions or vehicle dimensions.
+  \item There is no live traffic feed, verified dynamic road-closure feed, weather feed, construction feed, or traffic-signal priority integration.
+  \item Selecting multiple teams is a user-interface planning feature. Separate vehicle positions, per-vehicle routes, dispatch messages, acknowledgements, and fleet status are not implemented.
+  \item GPS is a browser-permission-based origin input, not continuous fleet tracking.
+  \item Route duration is an external provider estimate, not a guaranteed arrival time or calibrated emergency ETA.
+  \item Map detail and label language depend on provider coverage and geographic data quality. Missing buildings, rivers, or labels cannot be fixed solely by changing CSS or zoom.
+  \item Public routing, geocoding, and tile services have usage limits and no operational availability guarantee. The UI is a prototype and requires internet access for external data.
+  \item There is no authentication, role-based access, audit history, database-backed incident record, failover routing, monitoring, or safety certification.
+\end{enumerate}
+
+\section{Future Work}
+A real-world research phase should be developed in controlled stages:
+\begin{enumerate}
+  \item Import a licensed and validated geospatial road graph with one-way rules, turn restrictions, access restrictions, bridges, and vehicle constraints.
+  \item Connect the real road graph to the in-house Dijkstra/Yen engine and benchmark results against a trusted routing provider.
+  \item Define ambulance, fire, and police vehicle profiles with verified jurisdiction-specific access policies.
+  \item Integrate time-stamped traffic, incidents, closures, construction, and weather data with source provenance, expiry, and stale-data warnings.
+  \item Support separate starting locations and route requests for each response team, plus dispatcher assignment and acknowledgement workflows.
+  \item Add database persistence, authentication, authorization, audit trails, observability, fault handling, backups, and privacy controls.
+  \item Evaluate with historical scenarios and domain experts. Any operational trial requires formal safety review, emergency-service authorization, and human dispatcher oversight.
+\end{enumerate}
+
+\section{Conclusion}
+The Emergency Route Optimizer demonstrates a complete academic workflow across graph modelling, shortest-path search, alternative-route generation, simulation of changing road conditions, a Java REST backend, external geocoding/routing integration, and a map-based planning interface. The core DSA implementation remains independently testable on a controlled sample graph, while the browser demonstration can request real-road route data from an external provider.
+
+The main academic contribution is the implementation and verification of an explainable graph-routing engine and its integration into a wider prototype. The system is not yet a real emergency dispatch solution: its real-road routing is provider-based and standard-driving, while emergency-specific access, live data, separate fleet dispatch, and safety validation remain future work.
+
+\section*{References}
+\begin{enumerate}[label={[\arabic*]}]
+  \item E. W. Dijkstra, ``A note on two problems in connexion with graphs,'' \emph{Numerische Mathematik}, vol. 1, pp. 269--271, 1959. DOI: \href{https://doi.org/10.1007/BF01386390}{10.1007/BF01386390}.
+  \item J. Y. Yen, ``Finding the K Shortest Loopless Paths in a Network,'' \emph{Management Science}, vol. 17, no. 11, pp. 712--716, 1971. DOI: \href{https://doi.org/10.1287/mnsc.17.11.712}{10.1287/mnsc.17.11.712}.
+  \item Project OSRM, ``OSRM HTTP API Documentation,'' Route service and alternative-route parameters. \url{https://project-osrm.org/docs/v26.4.0/http}.
+  \item OpenStreetMap Foundation, ``Nominatim Usage Policy.'' \url{https://operations.osmfoundation.org/policies/nominatim/}.
+  \item OpenStreetMap Foundation, ``Tile Usage Policy.'' \url{https://operations.osmfoundation.org/policies/tiles/}.
+  \item Leaflet, ``Leaflet API Reference.'' \url{https://leafletjs.com/reference.html}.
+  \item OpenStreetMap, ``Copyright and Licence.'' \url{https://www.openstreetmap.org/copyright}.
+\end{enumerate}
+
+\appendix
+\section{Project File Map}
+\begin{lstlisting}[style=console]
+src/main/java/com/emergencyroute/
+  EmergencyRouteApp.java
+  EmergencyRouteBackendApplication.java
+  BrowserLauncher.java (optional)
+  Location.java
+  Road.java
+  RoadNetwork.java
+  Route.java
+  RouteOptimizer.java
+  SampleNetwork.java
+  api/HealthController.java
+  api/RouteController.java
+  api/GeocodingController.java
+  integration/OsrmRoutingService.java
+  integration/NominatimGeocodingService.java
+src/main/resources/static/index.html
+src/test/java/com/emergencyroute/RouteOptimizerTest.java
+tools/VerificationSuite.java
+scripts/verify.sh
+README.md
+report.tex / report.pdf
+\end{lstlisting}
+
+\section{Final Submission Notes}
+Before handing in the project, enter the student/institution details on the title page, verify that the local IntelliJ project contains all backend and web files listed in Appendix A, run \texttt{mvn test} and \texttt{mvn package}, run \texttt{scripts/verify.sh}, and capture screenshots of the test results and the working web/API demonstration. Do not mark manual checks as complete until they have been reproduced on the final local project.
+
+\end{document}

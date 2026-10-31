@@ -1,0 +1,38 @@
+
+# Maven build files
+target/
+.build/
+.verify-build/
+
+# Java generated files
+*.class
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Operating system
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# LaTeX temporary files
+*.aux
+*.out
+*.toc
+*.synctex.gz
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Local configuration
+application-local.properties
+application-local.yml
